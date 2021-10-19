@@ -240,7 +240,7 @@ public final class S3CrtPojoConversion {
 
     private static S3ResponseMetadata createS3ResponseMetadata(SdkHttpResponse sdkHttpResponse) {
         Map<String, String> metadata = new HashMap<>();
-        sdkHttpResponse.headers().forEach((key, value) -> metadata.put(key, value.get(0)));
+        sdkHttpResponse.forEachHeader((key, value) -> metadata.put(key, value.get(0)));
         return S3ResponseMetadata.create(DefaultAwsResponseMetadata.create(metadata));
     }
 

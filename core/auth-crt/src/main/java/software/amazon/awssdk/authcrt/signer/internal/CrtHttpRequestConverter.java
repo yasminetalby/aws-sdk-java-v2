@@ -129,20 +129,20 @@ public final class CrtHttpRequestConverter {
     }
 
     private HttpHeader[] createHttpHeaderArray(SdkHttpFullRequest request) {
-        List<HttpHeader> crtHeaderList = new ArrayList<>(request.headers().size() + 2);
+        List<HttpHeader> crtHeaderList = new ArrayList<>(request.numHeaders() + 2);
 
         // Set Host Header if needed
-        if (isNullOrEmpty(request.headers().get(HOST_HEADER))) {
+        if (!request.firstMatchingHeader(HOST_HEADER).isPresent()) {
             crtHeaderList.add(new HttpHeader(HOST_HEADER, request.host()));
         }
 
         // Add the rest of the Headers
-        for (Map.Entry<String, List<String>> headerList: request.headers().entrySet()) {
-            for (String val: headerList.getValue()) {
-                HttpHeader h = new HttpHeader(headerList.getKey(), val);
+        request.forEachHeader((name, values) -> {
+            for (String val : values) {
+                HttpHeader h = new HttpHeader(name, val);
                 crtHeaderList.add(h);
             }
-        }
+        });
 
         return crtHeaderList.toArray(new HttpHeader[0]);
     }

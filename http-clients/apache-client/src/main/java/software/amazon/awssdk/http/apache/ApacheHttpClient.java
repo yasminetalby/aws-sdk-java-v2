@@ -17,6 +17,7 @@ package software.amazon.awssdk.http.apache;
 
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 import static software.amazon.awssdk.http.HttpMetric.AVAILABLE_CONCURRENCY;
 import static software.amazon.awssdk.http.HttpMetric.HTTP_CLIENT_NAME;
@@ -32,7 +33,11 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.sql.Array;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -44,6 +49,7 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import org.apache.http.Header;
+import org.apache.http.HeaderIterator;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.methods.HttpRequestBase;
@@ -275,26 +281,27 @@ public final class ApacheHttpClient implements SdkHttpClient {
      */
     private HttpExecuteResponse createResponse(org.apache.http.HttpResponse apacheHttpResponse,
                                                HttpRequestBase apacheRequest) throws IOException {
-        SdkHttpResponse response = SdkHttpResponse.builder()
-                                                  .statusCode(apacheHttpResponse.getStatusLine().getStatusCode())
-                                                  .statusText(apacheHttpResponse.getStatusLine().getReasonPhrase())
-                                                  .headers(transformHeaders(apacheHttpResponse))
-                                                  .build();
+        SdkHttpResponse.Builder responseBuilder =
+            SdkHttpResponse.builder()
+                           .statusCode(apacheHttpResponse.getStatusLine().getStatusCode())
+                           .statusText(apacheHttpResponse.getStatusLine().getReasonPhrase());
+
+        HeaderIterator headerIterator = apacheRequest.headerIterator();
+        while (headerIterator.hasNext()) {
+            Header header = headerIterator.nextHeader();
+            responseBuilder.appendHeader(header.getName(), header.getValue());
+        }
+
         AbortableInputStream responseBody = apacheHttpResponse.getEntity() != null ?
                                    toAbortableInputStream(apacheHttpResponse, apacheRequest) : null;
 
-        return HttpExecuteResponse.builder().response(response).responseBody(responseBody).build();
+        return HttpExecuteResponse.builder().response(responseBuilder.build()).responseBody(responseBody).build();
 
     }
 
     private AbortableInputStream toAbortableInputStream(HttpResponse apacheHttpResponse, HttpRequestBase apacheRequest)
             throws IOException {
         return AbortableInputStream.create(apacheHttpResponse.getEntity().getContent(), apacheRequest::abort);
-    }
-
-    private Map<String, List<String>> transformHeaders(HttpResponse apacheHttpResponse) {
-        return Stream.of(apacheHttpResponse.getAllHeaders())
-                     .collect(groupingBy(Header::getName, mapping(Header::getValue, toList())));
     }
 
     private ApacheHttpRequestConfig createRequestConfig(DefaultBuilder builder,

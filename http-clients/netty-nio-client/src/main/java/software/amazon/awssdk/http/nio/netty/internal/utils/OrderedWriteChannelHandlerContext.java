@@ -18,8 +18,10 @@ package software.amazon.awssdk.http.nio.netty.internal.utils;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
+import io.netty.handler.codec.http.HttpContent;
 import java.util.function.Consumer;
 import software.amazon.awssdk.annotations.SdkInternalApi;
+import software.amazon.awssdk.http.nio.netty.ByteBufOrderVerifier;
 
 /**
  * An implementation of {@link ChannelHandlerContext} that ensures all writes are performed in the order they are invoked.
@@ -29,6 +31,8 @@ import software.amazon.awssdk.annotations.SdkInternalApi;
  */
 @SdkInternalApi
 public class OrderedWriteChannelHandlerContext extends DelegatingChannelHandlerContext {
+    private final ByteBufOrderVerifier orderVerifier = new ByteBufOrderVerifier("OrderedWriteChannelHandlerContext");
+
     private OrderedWriteChannelHandlerContext(ChannelHandlerContext delegate) {
         super(delegate);
     }
@@ -50,12 +54,22 @@ public class OrderedWriteChannelHandlerContext extends DelegatingChannelHandlerC
 
     @Override
     public ChannelFuture writeAndFlush(Object msg) {
-        return doInOrder(promise -> super.writeAndFlush(msg, promise));
+        return doInOrder(promise -> {
+            if (msg instanceof HttpContent) {
+                orderVerifier.feed(((HttpContent) msg).content());
+            }
+            super.writeAndFlush(msg, promise);
+        });
     }
 
     @Override
     public ChannelFuture writeAndFlush(Object msg, ChannelPromise promise) {
-        doInOrder(() -> super.writeAndFlush(msg, promise));
+        doInOrder(() -> {
+            if (msg instanceof HttpContent) {
+                orderVerifier.feed(((HttpContent) msg).content());
+            }
+            super.writeAndFlush(msg, promise);
+        });
         return promise;
     }
 

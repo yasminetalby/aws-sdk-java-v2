@@ -44,17 +44,19 @@ public final class HeaderUnmarshaller {
     // Only supports string value type
     public static final XmlUnmarshaller<Map<String, ?>> MAP = ((context, content, field) -> {
         Map<String, String> result = new HashMap<>();
-        context.response().headers().entrySet().stream()
-               .filter(e -> startsWithIgnoreCase(e.getKey(), field.locationName()))
-               .forEach(e -> result.put(replacePrefixIgnoreCase(e.getKey(), field.locationName(), ""),
-                                        String.join(",", e.getValue())));
+
+        context.response().forEachHeader((name, value) -> {
+            if (startsWithIgnoreCase(name, field.locationName())) {
+                result.put(replacePrefixIgnoreCase(name, field.locationName(), ""), String.join(",", value));
+            }
+        });
+
         return result;
     });
 
     // Only supports string value type
-    public static final XmlUnmarshaller<List<?>> LIST = (context, content, field) -> {
-        return SdkHttpUtils.allMatchingHeaders(context.response().headers(), field.locationName()).collect(toList());
-    };
+    public static final XmlUnmarshaller<List<?>> LIST = (context, content, field) ->
+        context.response().matchingHeaders(field.locationName());
 
     private HeaderUnmarshaller() {
     }

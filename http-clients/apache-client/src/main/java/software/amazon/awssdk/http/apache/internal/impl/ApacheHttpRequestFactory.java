@@ -20,6 +20,7 @@ import static software.amazon.awssdk.utils.NumericUtils.saturatedCast;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.client.config.RequestConfig;
@@ -66,7 +67,7 @@ public class ApacheHttpRequestFactory {
      * @param request The existing request
      * @return a new String containing the modified URI
      */
-    private String sanitizeUri(SdkHttpRequest request) {
+    private URI sanitizeUri(SdkHttpRequest request) {
         String path = request.encodedPath();
         if (path.contains("//")) {
             int port = request.port();
@@ -80,10 +81,10 @@ public class ApacheHttpRequestFactory {
             String portString = SdkHttpUtils.isUsingStandardPort(protocol, port) ?
                                 "" : ":" + port;
 
-            return URI.create(protocol + "://" + request.host() + portString + newPath + encodedQueryString).toString();
+            return URI.create(protocol + "://" + request.host() + portString + newPath + encodedQueryString);
         }
 
-        return request.getUri().toString();
+        return request.getUri();
     }
 
     private void addRequestConfig(final HttpRequestBase base,
@@ -115,7 +116,7 @@ public class ApacheHttpRequestFactory {
     }
 
 
-    private HttpRequestBase createApacheRequest(HttpExecuteRequest request, String uri) {
+    private HttpRequestBase createApacheRequest(HttpExecuteRequest request, URI uri) {
         switch (request.httpRequest().method()) {
             case HEAD:
                 return new HttpHead(uri);
@@ -151,7 +152,7 @@ public class ApacheHttpRequestFactory {
          */
         if (request.contentStreamProvider().isPresent()) {
             HttpEntity entity = new RepeatableInputStreamRequestEntity(request);
-            if (request.httpRequest().headers().get(HttpHeaders.CONTENT_LENGTH) == null) {
+            if (!request.httpRequest().firstMatchingHeader(HttpHeaders.CONTENT_LENGTH).isPresent()) {
                 entity = ApacheUtils.newBufferedHttpEntity(entity);
             }
             entityEnclosingRequest.setEntity(entity);
@@ -167,17 +168,18 @@ public class ApacheHttpRequestFactory {
 
         httpRequest.addHeader(HttpHeaders.HOST, getHostHeaderValue(request));
 
-
         // Copy over any other headers already in our request
-        request.headers().entrySet().stream()
-               /*
-                * HttpClient4 fills in the Content-Length header and complains if
-                * it's already present, so we skip it here. We also skip the Host
-                * header to avoid sending it twice, which will interfere with some
-                * signing schemes.
-                */
-               .filter(e -> !IGNORE_HEADERS.contains(e.getKey()))
-               .forEach(e -> e.getValue().forEach(h -> httpRequest.addHeader(e.getKey(), h)));
+        request.forEachHeader((name, value) -> {
+            // HttpClient4 fills in the Content-Length header and complains if
+            // it's already present, so we skip it here. We also skip the Host
+            // header to avoid sending it twice, which will interfere with some
+            // signing schemes.
+            if (!IGNORE_HEADERS.contains(name)) {
+                for (String headerValue : value) {
+                    httpRequest.addHeader(name, headerValue);
+                }
+            }
+        });
     }
 
     private String getHostHeaderValue(SdkHttpRequest request) {

@@ -433,9 +433,8 @@ public final class DefaultS3Presigner extends DefaultSdkPresigner implements S3P
                                  .port(requestFromInterceptor.port())
                                  .encodedPath(requestFromInterceptor.encodedPath())
                                  .rawQueryParameters(requestFromInterceptor.rawQueryParameters())
-                                 .headers(requestFromInterceptor.headers())
-                                 .contentStreamProvider(bodyFromInterceptor.map(RequestBody::contentStreamProvider)
-                                                                           .orElse(null))
+                                 .applyMutation(r -> requestFromInterceptor.forEachHeader(r::putHeader))
+                                 .contentStreamProvider(bodyFromInterceptor.map(RequestBody::contentStreamProvider).orElse(null))
                                  .build();
     }
 

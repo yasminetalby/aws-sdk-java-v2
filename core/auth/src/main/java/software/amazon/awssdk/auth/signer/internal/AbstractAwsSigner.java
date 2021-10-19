@@ -214,7 +214,7 @@ public abstract class AbstractAwsSigner implements Signer {
      * @param parameters The query string parameters to be canonicalized.
      * @return A canonicalized form for the specified query string parameters.
      */
-    protected String getCanonicalizedQueryString(Map<String, List<String>> parameters) {
+    protected void addCanonicalizedQueryString(StringBuilder result, Map<String, List<String>> parameters) {
 
         SortedMap<String, List<String>> sorted = new TreeMap<>();
 
@@ -237,10 +237,9 @@ public abstract class AbstractAwsSigner implements Signer {
             }
             Collections.sort(encodedValues);
             sorted.put(encodedParamName, encodedValues);
-
         }
 
-        return SdkHttpUtils.flattenQueryParameters(sorted).orElse("");
+        SdkHttpUtils.flattenQueryParameters(result, sorted);
     }
 
     protected InputStream getBinaryRequestPayloadStream(ContentStreamProvider streamProvider) {
@@ -259,15 +258,15 @@ public abstract class AbstractAwsSigner implements Signer {
         }
     }
 
-    String getCanonicalizedResourcePath(String resourcePath, boolean urlEncode) {
+    protected void addCanonicalizedResourcePath(StringBuilder result, String resourcePath, boolean urlEncode) {
         if (StringUtils.isEmpty(resourcePath)) {
-            return "/";
+            result.append("/");
         } else {
             String value = urlEncode ? SdkHttpUtils.urlEncodeIgnoreSlashes(resourcePath) : resourcePath;
             if (value.startsWith("/")) {
-                return value;
+                result.append(value);
             } else {
-                return "/".concat(value);
+                result.append("/").append(value);
             }
         }
     }

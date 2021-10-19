@@ -53,7 +53,8 @@ public final class ChecksumValidatingPublisher implements SdkPublisher<ByteBuffe
     }
 
     private static class ChecksumValidatingSubscriber implements Subscriber<ByteBuffer> {
-
+        private static final ByteBufferOrderVerifier checksumCreator = new ByteBufferOrderVerifier(
+            "ChecksumValidatingSubscriber");
         private static final int CHECKSUM_SIZE = 16;
 
         private final Subscriber<? super ByteBuffer> wrapped;
@@ -78,6 +79,7 @@ public final class ChecksumValidatingPublisher implements SdkPublisher<ByteBuffe
 
         @Override
         public void onNext(ByteBuffer byteBuffer) {
+            checksumCreator.feed(byteBuffer);
             byte[] buf = BinaryUtils.copyBytesFrom(byteBuffer);
 
             if (lengthRead < strippedLength) {

@@ -58,6 +58,7 @@ import software.amazon.awssdk.http.SdkCancellationException;
 import software.amazon.awssdk.http.SdkHttpFullResponse;
 import software.amazon.awssdk.http.SdkHttpResponse;
 import software.amazon.awssdk.http.async.SdkAsyncHttpResponseHandler;
+import software.amazon.awssdk.http.nio.netty.BadBoyCatchingPublisher;
 import software.amazon.awssdk.http.nio.netty.internal.http2.Http2ResetSendingSubscription;
 import software.amazon.awssdk.http.nio.netty.internal.nrs.HttpStreamsClientHandler;
 import software.amazon.awssdk.http.nio.netty.internal.nrs.StreamedHttpResponse;
@@ -94,7 +95,8 @@ public class ResponseHandler extends SimpleChannelInboundHandler<HttpObject> {
         CompletableFuture<Void> ef = executeFuture(channelContext);
         if (msg instanceof StreamedHttpResponse) {
             requestContext.handler().onStream(
-                    new PublisherAdapter((StreamedHttpResponse) msg, channelContext, requestContext, ef));
+                    new BadBoyCatchingPublisher(new PublisherAdapter((StreamedHttpResponse) msg, channelContext, requestContext
+                        , ef), "2"));
         } else if (msg instanceof FullHttpResponse) {
             ByteBuf fullContent = null;
             try {
@@ -106,7 +108,8 @@ public class ResponseHandler extends SimpleChannelInboundHandler<HttpObject> {
 
                 fullContent = ((FullHttpResponse) msg).content();
                 ByteBuffer bb = copyToByteBuffer(fullContent);
-                requestContext.handler().onStream(new FullResponseContentPublisher(channelContext, bb, ef));
+                requestContext.handler().onStream(new BadBoyCatchingPublisher(new FullResponseContentPublisher(channelContext,
+                                                                                                               bb, ef), "3"));
                 finalizeResponse(requestContext, channelContext);
             } finally {
                 Optional.ofNullable(fullContent).ifPresent(ByteBuf::release);

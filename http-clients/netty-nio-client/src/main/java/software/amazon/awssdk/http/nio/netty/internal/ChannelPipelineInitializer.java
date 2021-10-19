@@ -23,11 +23,17 @@ import static software.amazon.awssdk.http.nio.netty.internal.utils.NettyUtils.ne
 import static software.amazon.awssdk.utils.NumericUtils.saturatedCast;
 import static software.amazon.awssdk.utils.StringUtils.lowerCase;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufHolder;
 import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelDuplexHandler;
+import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
+import io.netty.channel.ChannelPromise;
 import io.netty.channel.pool.AbstractChannelPoolHandler;
 import io.netty.channel.pool.ChannelPool;
 import io.netty.handler.codec.http.HttpClientCodec;
@@ -36,17 +42,20 @@ import io.netty.handler.codec.http2.Http2FrameCodecBuilder;
 import io.netty.handler.codec.http2.Http2FrameLogger;
 import io.netty.handler.codec.http2.Http2MultiplexHandler;
 import io.netty.handler.codec.http2.Http2Settings;
+import io.netty.handler.logging.ByteBufFormat;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.SslProvider;
+import io.netty.util.concurrent.EventExecutorGroup;
 import java.net.URI;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.http.Protocol;
+import software.amazon.awssdk.http.nio.netty.ByteBufOrderVerifier;
 import software.amazon.awssdk.http.nio.netty.internal.http2.Http2GoAwayEventListener;
 import software.amazon.awssdk.http.nio.netty.internal.http2.Http2PingHandler;
 import software.amazon.awssdk.http.nio.netty.internal.http2.Http2SettingsFrameHandler;
@@ -96,6 +105,7 @@ public final class ChannelPipelineInitializer extends AbstractChannelPoolHandler
                                                   configuration.tlsHandshakeTimeout());
 
             pipeline.addLast(sslHandler);
+            pipeline.addLast(new OrderCheckingHandler());
             pipeline.addLast(SslCloseCompletionEventHandler.getInstance());
 
             // Use unpooled allocator to avoid increased heap memory usage from Netty 4.1.43.
@@ -168,6 +178,21 @@ public final class ChannelPipelineInitializer extends AbstractChannelPoolHandler
     private static class NoOpChannelInitializer extends ChannelInitializer<Channel> {
         @Override
         protected void initChannel(Channel ch) {
+        }
+    }
+
+    private class OrderCheckingHandler extends ChannelDuplexHandler {
+        private final ByteBufOrderVerifier orderVerifier = new ByteBufOrderVerifier("OrderCheckingHandler");
+
+        @Override
+        public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
+            if (msg instanceof ByteBuf) {
+                orderVerifier.feed((ByteBuf) msg);
+            } else if (msg instanceof ByteBufHolder) {
+                orderVerifier.feed(((ByteBufHolder) msg).content());
+            }
+
+            super.write(ctx, msg, promise);
         }
     }
 }

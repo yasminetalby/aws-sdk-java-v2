@@ -33,6 +33,10 @@ public class Lazy<T> implements SdkAutoCloseable {
         this.initializer = initializer;
     }
 
+    public static <T> Lazy<T> withValue(T initialValue) {
+        return new ResolvedLazy<>(initialValue);
+    }
+
     public T getValue() {
         T result = value;
         if (result == null) {
@@ -67,5 +71,31 @@ public class Lazy<T> implements SdkAutoCloseable {
 
         IoUtils.closeIfCloseable(initializer, null);
         IoUtils.closeIfCloseable(value, null);
+    }
+
+    private static class ResolvedLazy<T> extends Lazy<T> {
+        private final T initialValue;
+
+        public ResolvedLazy(T initialValue) {
+            super(null);
+            this.initialValue = initialValue;
+        }
+
+        @Override
+        public T getValue() {
+            return initialValue;
+        }
+
+        @Override
+        public String toString() {
+            return ToString.builder("Lazy")
+                           .add("value", initialValue)
+                           .build();
+        }
+
+        @Override
+        public void close() {
+            IoUtils.closeIfCloseable(initialValue, null);
+        }
     }
 }

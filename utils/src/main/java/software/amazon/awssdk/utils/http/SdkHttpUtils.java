@@ -198,6 +198,18 @@ public final class SdkHttpUtils {
         }
 
         StringBuilder result = new StringBuilder();
+        flattenQueryParameters(result, toFlatten);
+        return Optional.of(result.toString());
+    }
+
+    /**
+     * Flatten the provided query parameters into a string that can be used as the query string in a URL. The result is not
+     * prepended with "?". This is useful when you have already-encoded query parameters you wish to flatten.
+     */
+    public static void flattenQueryParameters(StringBuilder result, Map<String, List<String>> toFlatten) {
+        if (toFlatten.isEmpty()) {
+            return;
+        }
 
         for (Entry<String, List<String>> encodedQueryParameter : toFlatten.entrySet()) {
             String key = encodedQueryParameter.getKey();
@@ -215,7 +227,6 @@ public final class SdkHttpUtils {
                 }
             }
         }
-        return Optional.of(result.toString());
     }
 
     /**
@@ -308,7 +319,14 @@ public final class SdkHttpUtils {
      * @return The first header that matched the requested one, or empty if one was not found.
      */
     public static Optional<String> firstMatchingHeader(Map<String, List<String>> headers, String header) {
-        return allMatchingHeaders(headers, header).findFirst();
+        for (Entry<String, List<String>> headerEntry : headers.entrySet()) {
+            if (headerEntry.getKey().equalsIgnoreCase(header) &&
+                headerEntry.getValue() != null &&
+                !headerEntry.getValue().isEmpty()) {
+                return Optional.of(headerEntry.getValue().get(0));
+            }
+        }
+        return Optional.empty();
     }
 
     /**
@@ -321,7 +339,17 @@ public final class SdkHttpUtils {
      */
     public static Optional<String> firstMatchingHeaderFromCollection(Map<String, List<String>> headersToSearch,
                                                                      Collection<String> headersToFind) {
-        return allMatchingHeadersFromCollection(headersToSearch, headersToFind).findFirst();
+        for (Entry<String, List<String>> headerEntry : headersToSearch.entrySet()) {
+            for (String headerToFind : headersToFind) {
+                if (headerEntry.getKey().equalsIgnoreCase(headerToFind) &&
+                    headerEntry.getValue() != null &&
+                    !headerEntry.getValue().isEmpty()) {
+                    return Optional.of(headerEntry.getValue().get(0));
+                }
+            }
+        }
+
+        return Optional.empty();
     }
 
     public static boolean isSingleHeader(String h) {

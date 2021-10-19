@@ -15,9 +15,13 @@
 
 package software.amazon.awssdk.http;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 import software.amazon.awssdk.annotations.Immutable;
 import software.amazon.awssdk.annotations.SdkPublicApi;
 import software.amazon.awssdk.utils.http.SdkHttpUtils;
@@ -52,5 +56,27 @@ public interface SdkHttpHeaders {
      */
     default Optional<String> firstMatchingHeader(String header) {
         return SdkHttpUtils.firstMatchingHeader(headers(), header);
+    }
+
+    default Optional<String> firstMatchingHeader(Collection<String> headersToFind) {
+        return SdkHttpUtils.firstMatchingHeaderFromCollection(headers(), headersToFind);
+    }
+
+    default List<String> matchingHeaders(String header) {
+        return SdkHttpUtils.allMatchingHeaders(headers(), header).collect(Collectors.toList());
+    }
+
+    // default Map<String, List<String>> matchingHeaders(Collection<String> headersToFind) {
+    //     return headers().entrySet().stream()
+    //                     .filter(e -> headersToFind.stream().anyMatch(e.getKey()::equalsIgnoreCase))
+    //                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    // }
+
+    default void forEachHeader(BiConsumer<? super String, ? super List<String>> consumer) {
+        headers().forEach(consumer);
+    }
+
+    default int numHeaders() {
+        return headers().size();
     }
 }

@@ -116,11 +116,11 @@ public class SigningUtils {
         builder.clearHeaders();
 
         // Filter headers that will cause signing to fail
-        for (Map.Entry<String, List<String>> header: request.headers().entrySet()) {
-            if (!FORBIDDEN_HEADERS.contains(header.getKey())) {
-                builder.putHeader(header.getKey(), header.getValue());
+        request.forEachHeader((name, value) -> {
+            if (!FORBIDDEN_HEADERS.contains(name)) {
+                builder.putHeader(name, value);
             }
-        }
+        });
 
         // Add host, which must be signed. We ignore any pre-existing Host header to match the behavior of the SigV4 signer.
         String hostHeader = SdkHttpUtils.isUsingStandardPort(request.protocol(), request.port())

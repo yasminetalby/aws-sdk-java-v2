@@ -69,7 +69,9 @@ public class ApplyUserAgentStage implements MutableRequestToRequestPipeline {
         String userDefinedPrefix = config.option(SdkAdvancedClientOption.USER_AGENT_PREFIX);
         String awsExecutionEnvironment = SdkSystemSetting.AWS_EXECUTION_ENV.getStringValue().orElse(null);
 
-        StringBuilder userAgent = new StringBuilder(StringUtils.trimToEmpty(userDefinedPrefix));
+        StringBuilder userAgent = new StringBuilder(128);
+
+        userAgent.append(StringUtils.trimToEmpty(userDefinedPrefix));
 
         String systemUserAgent = SdkUserAgent.create().userAgent();
         if (!systemUserAgent.equals(userDefinedPrefix)) {

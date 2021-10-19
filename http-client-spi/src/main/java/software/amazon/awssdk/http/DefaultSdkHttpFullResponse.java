@@ -21,15 +21,20 @@ import static software.amazon.awssdk.utils.CollectionUtils.deepUnmodifiableMap;
 import java.beans.Transient;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.function.BiConsumer;
 import software.amazon.awssdk.annotations.Immutable;
 import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.utils.CollectionUtils;
+import software.amazon.awssdk.utils.Lazy;
+import software.amazon.awssdk.utils.StringUtils;
 import software.amazon.awssdk.utils.Validate;
 
 /**
@@ -44,21 +49,67 @@ class DefaultSdkHttpFullResponse implements SdkHttpFullResponse, Serializable {
 
     private final String statusText;
     private final int statusCode;
-    private final Map<String, List<String>> headers;
+    private final Lazy<Map<String, List<String>>> headers;
     private final transient AbortableInputStream content;
+    private final Map<String, List<String>> headersFromBuilder;
 
     private DefaultSdkHttpFullResponse(Builder builder) {
         this.statusCode = Validate.isNotNegative(builder.statusCode, "Status code must not be negative.");
         this.statusText = builder.statusText;
-        this.headers = builder.headersAreFromToBuilder
-                       ? builder.headers
-                       : deepUnmodifiableMap(builder.headers, () -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER));
+        this.headersFromBuilder = builder.headers;
+        if (builder.headersAreFromToBuilder) {
+            this.headers = Lazy.withValue(headersFromBuilder);
+        } else {
+            this.headers = new Lazy<>(() -> deepUnmodifiableMap(headersFromBuilder, () -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER)));
+        }
         this.content = builder.content;
     }
 
     @Override
     public Map<String, List<String>> headers() {
-        return headers;
+        return headers.getValue();
+    }
+
+    @Override
+    public List<String> matchingHeaders(String header) {
+        return Collections.unmodifiableList(headersFromBuilder.getOrDefault(header, Collections.emptyList()));
+    }
+
+    @Override
+    public Optional<String> firstMatchingHeader(String headerName) {
+        List<String> headers = headersFromBuilder.get(headerName);
+        if (headers == null || headers.isEmpty()) {
+            return Optional.empty();
+        }
+
+        String header = headers.get(0);
+        if (StringUtils.isEmpty(header)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(header);
+    }
+
+    @Override
+    public Optional<String> firstMatchingHeader(Collection<String> headersToFind) {
+        for (String headerName : headersToFind) {
+            Optional<String> header = firstMatchingHeader(headerName);
+            if (header.isPresent()) {
+                return header;
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    @Override
+    public void forEachHeader(BiConsumer<? super String, ? super List<String>> consumer) {
+        headersFromBuilder.forEach((k, v) -> consumer.accept(k, Collections.unmodifiableList(v)));
+    }
+
+    @Override
+    public int numHeaders() {
+        return headersFromBuilder.size();
     }
 
     @Transient
@@ -117,7 +168,7 @@ class DefaultSdkHttpFullResponse implements SdkHttpFullResponse, Serializable {
 
         Builder() {
             headersAreFromToBuilder = false;
-            headers = new LinkedHashMap<>();
+            headers = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         }
 
         private Builder(DefaultSdkHttpFullResponse defaultSdkHttpFullResponse) {
@@ -125,7 +176,7 @@ class DefaultSdkHttpFullResponse implements SdkHttpFullResponse, Serializable {
             statusCode = defaultSdkHttpFullResponse.statusCode;
             content = defaultSdkHttpFullResponse.content;
             headersAreFromToBuilder = true;
-            headers = defaultSdkHttpFullResponse.headers;
+            headers = defaultSdkHttpFullResponse.headersFromBuilder;
         }
 
         @Override
@@ -182,7 +233,7 @@ class DefaultSdkHttpFullResponse implements SdkHttpFullResponse, Serializable {
         @Override
         public Builder headers(Map<String, List<String>> headers) {
             Validate.paramNotNull(headers, "headers");
-            this.headers = CollectionUtils.deepCopyMap(headers);
+            this.headers = CollectionUtils.deepCopyMap(headers, () -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER));
             headersAreFromToBuilder = false;
             return this;
         }
@@ -204,6 +255,48 @@ class DefaultSdkHttpFullResponse implements SdkHttpFullResponse, Serializable {
         @Override
         public Map<String, List<String>> headers() {
             return CollectionUtils.unmodifiableMapOfLists(this.headers);
+        }
+
+        @Override
+        public List<String> matchingHeaders(String header) {
+            return Collections.unmodifiableList(headers.getOrDefault(header, Collections.emptyList()));
+        }
+
+        @Override
+        public Optional<String> firstMatchingHeader(String headerName) {
+            List<String> headers = this.headers.get(headerName);
+            if (headers == null || headers.isEmpty()) {
+                return Optional.empty();
+            }
+
+            String header = headers.get(0);
+            if (StringUtils.isEmpty(header)) {
+                return Optional.empty();
+            }
+
+            return Optional.of(header);
+        }
+
+        @Override
+        public Optional<String> firstMatchingHeader(Collection<String> headersToFind) {
+            for (String headerName : headersToFind) {
+                Optional<String> header = firstMatchingHeader(headerName);
+                if (header.isPresent()) {
+                    return header;
+                }
+            }
+
+            return Optional.empty();
+        }
+
+        @Override
+        public void forEachHeader(BiConsumer<? super String, ? super List<String>> consumer) {
+            headers.forEach((k, v) -> consumer.accept(k, Collections.unmodifiableList(v)));
+        }
+
+        @Override
+        public int numHeaders() {
+            return headers.size();
         }
 
         private void copyHeadersIfNeeded() {

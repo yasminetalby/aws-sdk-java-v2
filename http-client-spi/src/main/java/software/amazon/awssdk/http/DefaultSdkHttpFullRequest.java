@@ -19,15 +19,19 @@ import static software.amazon.awssdk.utils.CollectionUtils.deepCopyMap;
 import static software.amazon.awssdk.utils.CollectionUtils.deepUnmodifiableMap;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import software.amazon.awssdk.annotations.Immutable;
 import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.utils.CollectionUtils;
+import software.amazon.awssdk.utils.Lazy;
 import software.amazon.awssdk.utils.StringUtils;
 import software.amazon.awssdk.utils.ToString;
 import software.amazon.awssdk.utils.Validate;
@@ -44,9 +48,11 @@ final class DefaultSdkHttpFullRequest implements SdkHttpFullRequest {
     private final String host;
     private final Integer port;
     private final String path;
-    private final Map<String, List<String>> queryParameters;
+    private final Map<String, List<String>> queryParametersFromBuilder;
+    private final Lazy<Map<String, List<String>>> queryParameters;
     private final SdkHttpMethod httpMethod;
-    private final Map<String, List<String>> headers;
+    private final Map<String, List<String>> headersFromBuilder;
+    private final Lazy<Map<String, List<String>>> headers;
     private final ContentStreamProvider contentStreamProvider;
 
     private DefaultSdkHttpFullRequest(Builder builder) {
@@ -57,12 +63,21 @@ final class DefaultSdkHttpFullRequest implements SdkHttpFullRequest {
         this.httpMethod = Validate.paramNotNull(builder.httpMethod, "method");
         this.contentStreamProvider = builder.contentStreamProvider;
 
-        this.queryParameters = builder.queryParametersAreFromToBuilder
-                               ? builder.queryParameters
-                               : deepUnmodifiableMap(builder.queryParameters, () -> new LinkedHashMap<>());
-        this.headers = builder.headersAreFromToBuilder
-                       ? builder.headers
-                       : deepUnmodifiableMap(builder.headers, () -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER));
+        this.queryParametersFromBuilder = builder.queryParameters;
+        if (builder.queryParametersAreFromToBuilder) {
+            this.queryParameters = Lazy.withValue(queryParametersFromBuilder);
+        } else {
+            this.queryParameters =
+                new Lazy<>(() -> deepUnmodifiableMap(queryParametersFromBuilder));
+        }
+
+        this.headersFromBuilder = builder.headers;
+        if (builder.headersAreFromToBuilder) {
+            this.headers = Lazy.withValue(headersFromBuilder);
+        } else {
+            this.headers = new Lazy<>(() -> deepUnmodifiableMap(headersFromBuilder,
+                                                                () -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER)));
+        }
     }
 
     private String standardizeProtocol(String protocol) {
@@ -120,7 +135,49 @@ final class DefaultSdkHttpFullRequest implements SdkHttpFullRequest {
 
     @Override
     public Map<String, List<String>> headers() {
-        return headers;
+        return headers.getValue();
+    }
+
+    @Override
+    public List<String> matchingHeaders(String header) {
+        return Collections.unmodifiableList(headersFromBuilder.getOrDefault(header, Collections.emptyList()));
+    }
+
+    @Override
+    public Optional<String> firstMatchingHeader(String headerName) {
+        List<String> headers = headersFromBuilder.get(headerName);
+        if (headers == null || headers.isEmpty()) {
+            return Optional.empty();
+        }
+
+        String header = headers.get(0);
+        if (StringUtils.isEmpty(header)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(header);
+    }
+
+    @Override
+    public Optional<String> firstMatchingHeader(Collection<String> headersToFind) {
+        for (String headerName : headersToFind) {
+            Optional<String> header = firstMatchingHeader(headerName);
+            if (header.isPresent()) {
+                return header;
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    @Override
+    public void forEachHeader(BiConsumer<? super String, ? super List<String>> consumer) {
+        headersFromBuilder.forEach((k, v) -> consumer.accept(k, Collections.unmodifiableList(v)));
+    }
+
+    @Override
+    public int numHeaders() {
+        return headersFromBuilder.size();
     }
 
     @Override
@@ -130,7 +187,7 @@ final class DefaultSdkHttpFullRequest implements SdkHttpFullRequest {
 
     @Override
     public Map<String, List<String>> rawQueryParameters() {
-        return queryParameters;
+        return queryParameters.getValue();
     }
 
     @Override
@@ -156,8 +213,8 @@ final class DefaultSdkHttpFullRequest implements SdkHttpFullRequest {
                        .add("host", host)
                        .add("port", port)
                        .add("encodedPath", path)
-                       .add("headers", headers.keySet())
-                       .add("queryParameters", queryParameters.keySet())
+                       .add("headers", headers.getValue().keySet())
+                       .add("queryParameters", queryParameters.getValue().keySet())
                        .build();
     }
 
@@ -183,14 +240,14 @@ final class DefaultSdkHttpFullRequest implements SdkHttpFullRequest {
         Builder() {
             queryParameters = new LinkedHashMap<>();
             queryParametersAreFromToBuilder = false;
-            headers = new LinkedHashMap<>();
+            headers = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
             headersAreFromToBuilder = false;
         }
 
         Builder(DefaultSdkHttpFullRequest request) {
-            queryParameters = request.queryParameters;
+            queryParameters = request.queryParametersFromBuilder;
             queryParametersAreFromToBuilder = true;
-            headers = request.headers;
+            headers = request.headersFromBuilder;
             headersAreFromToBuilder = true;
             protocol = request.protocol;
             host = request.host;
@@ -260,7 +317,7 @@ final class DefaultSdkHttpFullRequest implements SdkHttpFullRequest {
 
         @Override
         public DefaultSdkHttpFullRequest.Builder rawQueryParameters(Map<String, List<String>> queryParameters) {
-            this.queryParameters = CollectionUtils.deepCopyMap(queryParameters, () -> new LinkedHashMap<>());
+            this.queryParameters = CollectionUtils.deepCopyMap(queryParameters);
             queryParametersAreFromToBuilder = false;
             return this;
         }
@@ -318,7 +375,7 @@ final class DefaultSdkHttpFullRequest implements SdkHttpFullRequest {
 
         @Override
         public DefaultSdkHttpFullRequest.Builder headers(Map<String, List<String>> headers) {
-            this.headers = CollectionUtils.deepCopyMap(headers);
+            this.headers = CollectionUtils.deepCopyMap(headers, () -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER));
             headersAreFromToBuilder = false;
             return this;
         }
@@ -338,8 +395,55 @@ final class DefaultSdkHttpFullRequest implements SdkHttpFullRequest {
         }
 
         @Override
+        public SdkHttpFullRequest.Builder putHeader(String headerName, String headerValue) {
+            return SdkHttpFullRequest.Builder.super.putHeader(headerName, headerValue);
+        }
+
+        @Override
         public Map<String, List<String>> headers() {
             return CollectionUtils.unmodifiableMapOfLists(this.headers);
+        }
+
+        @Override
+        public List<String> matchingHeaders(String header) {
+            return Collections.unmodifiableList(headers.getOrDefault(header, Collections.emptyList()));
+        }
+
+        @Override
+        public Optional<String> firstMatchingHeader(String headerName) {
+            List<String> headers = this.headers.get(headerName);
+            if (headers == null || headers.isEmpty()) {
+                return Optional.empty();
+            }
+
+            String header = headers.get(0);
+            if (StringUtils.isEmpty(header)) {
+                return Optional.empty();
+            }
+
+            return Optional.of(header);
+        }
+
+        @Override
+        public Optional<String> firstMatchingHeader(Collection<String> headersToFind) {
+            for (String headerName : headersToFind) {
+                Optional<String> header = firstMatchingHeader(headerName);
+                if (header.isPresent()) {
+                    return header;
+                }
+            }
+
+            return Optional.empty();
+        }
+
+        @Override
+        public void forEachHeader(BiConsumer<? super String, ? super List<String>> consumer) {
+            headers.forEach((k, v) -> consumer.accept(k, Collections.unmodifiableList(v)));
+        }
+
+        @Override
+        public int numHeaders() {
+            return headers.size();
         }
 
         private void copyHeadersIfNeeded() {

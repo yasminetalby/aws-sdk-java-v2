@@ -20,6 +20,7 @@ import static software.amazon.awssdk.utils.CollectionUtils.firstIfPresent;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 import software.amazon.awssdk.annotations.SdkProtectedApi;
@@ -42,11 +43,9 @@ public final class AwsClientHandlerUtils {
      * @return A bytebuffer representing the given request
      */
     public static ByteBuffer encodeEventStreamRequestToByteBuffer(SdkHttpFullRequest request) {
-        Map<String, HeaderValue> headers = request.headers()
-                                                  .entrySet()
-                                                  .stream()
-                                                  .collect(Collectors.toMap(Map.Entry::getKey, e -> HeaderValue.fromString(
-                                                      firstIfPresent(e.getValue()))));
+        Map<String, HeaderValue> headers = new LinkedHashMap<>();
+        request.forEachHeader((name, value) -> headers.put(name, HeaderValue.fromString(firstIfPresent(value))));
+
         byte[] payload = null;
         if (request.contentStreamProvider().isPresent()) {
             try {
