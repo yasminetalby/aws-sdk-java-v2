@@ -52,9 +52,7 @@ public final class CrtHttpRequestConverter {
         String method = inputRequest.method().name();
         String encodedPath = encodedPathToCrtFormat(inputRequest.encodedPath());
 
-        String encodedQueryString = SdkHttpUtils.encodeAndFlattenQueryParameters(inputRequest.rawQueryParameters())
-                .map(value -> "?" + value)
-                .orElse("");
+        String encodedQueryString = inputRequest.encodedQueryParameters().map(value -> "?" + value).orElse("");
 
         HttpHeader[] crtHeaderArray = createHttpHeaderArray(inputRequest);
 

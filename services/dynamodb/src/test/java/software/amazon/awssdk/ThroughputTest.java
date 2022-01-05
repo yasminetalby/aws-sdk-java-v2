@@ -36,28 +36,32 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 public class ThroughputTest {
     @Test
     public void test() throws Throwable {
-        DynamoDbClient client = DynamoDbClient.builder().httpClientBuilder(ApacheHttpClient.builder().maxConnections(100)).build();
-        ExecutorService executor = Executors.newFixedThreadPool(100);
+        DynamoDbClient client = DynamoDbClient.builder().httpClientBuilder(ApacheHttpClient.builder().maxConnections(10)).build();
+        ExecutorService executor = Executors.newFixedThreadPool(10);
 
         for (int i = 0; i < 100; i++) {
             System.out.println("Warmup: " + i + "%...");
             runWarmupTests(client, executor);
         }
 
-        for (int iter = 0; iter < 10; iter++) {
-            Duration total = Duration.ZERO;
-            for (int i = 0; i < 5; i++) {
-                Instant start = Instant.now();
-                runRealTests(client, executor);
-                Instant end = Instant.now();
-                total = total.plus(Duration.between(start, end));
+        Duration runTime = Duration.ofMinutes(1);
+        System.out.println("Executing runs... (" + runTime + " each)");
+        for (int run = 0; run < 5; run++) {
+
+            int i = 0;
+
+            Instant start = Instant.now();
+            Instant end = start.plus(runTime);
+            while (Instant.now().isBefore(end)) {
+                ++i;
+                int v = i % 10;
+                client.getItem(r -> r.tableName("millem-throughput")
+                                     .key(Collections.singletonMap("key", AttributeValue.builder().s("value" + v).build())));
             }
 
-            Duration average = total.dividedBy(5000);
-
-            System.out.println("Iteration " + iter + ": " + average);
+            double tps = (double) i / runTime.getSeconds();
+            System.out.println("Run " + run + " TPS: " + tps);
         }
-
     }
 
     private void runWarmupTests(DynamoDbClient client, ExecutorService executor) throws InterruptedException, ExecutionException {
@@ -69,10 +73,8 @@ public class ThroughputTest {
         for (int value = 0; value < 100; value++) {
             final int v = value;
             results.add(executor.submit(() -> {
-                for (int j = 0; j < 10; j++) {
-                    client.getItem(r -> r.tableName("millem-throughput")
-                                         .key(Collections.singletonMap("key", AttributeValue.builder().s("value" + v).build())));
-                }
+                client.getItem(r -> r.tableName("millem-throughput")
+                                     .key(Collections.singletonMap("key", AttributeValue.builder().s("value" + v).build())));
             }));
         }
         for (Future<?> result : results) {

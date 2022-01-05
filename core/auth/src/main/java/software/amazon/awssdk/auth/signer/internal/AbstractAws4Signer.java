@@ -471,7 +471,7 @@ public abstract class AbstractAws4Signer<T extends Aws4SignerParams, U extends A
 
             canonicalRequest.append(SignerConstant.LINE_SEPARATOR);
 
-            addCanonicalizedQueryString(canonicalRequest, request.rawQueryParameters());
+            addCanonicalizedQueryString(canonicalRequest, request);
 
             canonicalRequest.append(SignerConstant.LINE_SEPARATOR);
 

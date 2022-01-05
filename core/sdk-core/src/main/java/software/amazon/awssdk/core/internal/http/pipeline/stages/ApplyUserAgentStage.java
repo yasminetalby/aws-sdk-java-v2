@@ -15,10 +15,7 @@
 
 package software.amazon.awssdk.core.internal.http.pipeline.stages;
 
-import static software.amazon.awssdk.core.client.config.SdkClientOption.INTERNAL_USER_AGENT;
-
 import java.util.List;
-import java.util.stream.Collectors;
 import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.core.ApiName;
 import software.amazon.awssdk.core.ClientType;
@@ -29,8 +26,11 @@ import software.amazon.awssdk.core.client.config.SdkClientOption;
 import software.amazon.awssdk.core.internal.http.HttpClientDependencies;
 import software.amazon.awssdk.core.internal.http.RequestExecutionContext;
 import software.amazon.awssdk.core.internal.http.pipeline.MutableRequestToRequestPipeline;
+import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.core.util.SdkUserAgent;
+import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.http.SdkHttpFullRequest;
+import software.amazon.awssdk.http.async.SdkAsyncHttpClient;
 import software.amazon.awssdk.utils.StringUtils;
 import software.amazon.awssdk.utils.http.SdkHttpUtils;
 
@@ -57,37 +57,31 @@ public class ApplyUserAgentStage implements MutableRequestToRequestPipeline {
         this.clientConfig = dependencies.clientConfiguration();
     }
 
-    @Override
-    public SdkHttpFullRequest.Builder execute(SdkHttpFullRequest.Builder request, RequestExecutionContext context)
-            throws Exception {
-        StringBuilder userAgentBuilder = getUserAgent(clientConfig, context.requestConfig().apiNames());
-        String userAgent = addUserAgentSuffix(userAgentBuilder, clientConfig);
-        return request.putHeader(HEADER_USER_AGENT, userAgent);
-    }
-
-    private StringBuilder getUserAgent(SdkClientConfiguration config, List<ApiName> requestApiNames) {
-        String userDefinedPrefix = config.option(SdkAdvancedClientOption.USER_AGENT_PREFIX);
+    public static String resolveClientUserAgent(String userAgentPrefix,
+                                                String internalUserAgent,
+                                                ClientType clientType,
+                                                SdkHttpClient syncHttpClient,
+                                                SdkAsyncHttpClient asyncHttpClient,
+                                                RetryPolicy retryPolicy) {
         String awsExecutionEnvironment = SdkSystemSetting.AWS_EXECUTION_ENV.getStringValue().orElse(null);
 
         StringBuilder userAgent = new StringBuilder(128);
 
-        userAgent.append(StringUtils.trimToEmpty(userDefinedPrefix));
+        userAgent.append(StringUtils.trimToEmpty(userAgentPrefix));
 
         String systemUserAgent = SdkUserAgent.create().userAgent();
-        if (!systemUserAgent.equals(userDefinedPrefix)) {
+        if (!systemUserAgent.equals(userAgentPrefix)) {
             userAgent.append(COMMA).append(systemUserAgent);
         }
 
-        String internalUserAgent = StringUtils.trimToEmpty(clientConfig.option(INTERNAL_USER_AGENT));
-        if (!internalUserAgent.isEmpty()) {
-            userAgent.append(SPACE).append(internalUserAgent);
+        String trimmedInternalUserAgent = StringUtils.trimToEmpty(internalUserAgent);
+        if (!trimmedInternalUserAgent.isEmpty()) {
+            userAgent.append(SPACE).append(trimmedInternalUserAgent);
         }
 
         if (!StringUtils.isEmpty(awsExecutionEnvironment)) {
             userAgent.append(SPACE).append(AWS_EXECUTION_ENV_PREFIX).append(awsExecutionEnvironment.trim());
         }
-
-        ClientType clientType = clientConfig.option(SdkClientOption.CLIENT_TYPE);
 
         if (clientType == null) {
             clientType = ClientType.UNKNOWN;
@@ -98,14 +92,12 @@ public class ApplyUserAgentStage implements MutableRequestToRequestPipeline {
                  .append("/")
                  .append(StringUtils.lowerCase(clientType.name()));
 
-        String clientName = clientName(clientType);
-
         userAgent.append(SPACE)
                  .append(HTTP)
                  .append("/")
-                 .append(SdkHttpUtils.urlEncode(clientName));
+                 .append(SdkHttpUtils.urlEncode(clientName(clientType, syncHttpClient, asyncHttpClient)));
 
-        String retryMode = config.option(SdkClientOption.RETRY_POLICY).retryMode().toString();
+        String retryMode = retryPolicy.retryMode().toString();
 
         userAgent.append(SPACE)
                  .append(CONFIG)
@@ -114,15 +106,30 @@ public class ApplyUserAgentStage implements MutableRequestToRequestPipeline {
                  .append("/")
                  .append(StringUtils.lowerCase(retryMode));
 
-        if (!requestApiNames.isEmpty()) {
-            String requestUserAgent = requestApiNames.stream()
-                    .map(n -> n.name() + "/" + n.version())
-                    .collect(Collectors.joining(" "));
+        return userAgent.toString();
+    }
 
-            userAgent.append(SPACE).append(requestUserAgent);
+    @Override
+    public SdkHttpFullRequest.Builder execute(SdkHttpFullRequest.Builder request, RequestExecutionContext context)
+            throws Exception {
+        return request.putHeader(HEADER_USER_AGENT, getUserAgent(clientConfig, context.requestConfig().apiNames()));
+    }
+
+    private String getUserAgent(SdkClientConfiguration config, List<ApiName> requestApiNames) {
+        StringBuilder userAgent = new StringBuilder(clientConfig.option(SdkClientOption.CLIENT_USER_AGENT));
+
+        if (!requestApiNames.isEmpty()) {
+            requestApiNames.forEach(apiName -> {
+                userAgent.append(SPACE).append(apiName.name()).append("/").append(apiName.version());
+            });
         }
 
-        return userAgent;
+        String userDefinedSuffix = config.option(SdkAdvancedClientOption.USER_AGENT_SUFFIX);
+        if (!StringUtils.isEmpty(userDefinedSuffix)) {
+            userAgent.append(COMMA).append(userDefinedSuffix.trim());
+        }
+
+        return userAgent.toString();
     }
 
     /**
@@ -139,13 +146,13 @@ public class ApplyUserAgentStage implements MutableRequestToRequestPipeline {
         return userAgent.toString();
     }
 
-    private String clientName(ClientType clientType) {
+    private static String clientName(ClientType clientType, SdkHttpClient syncHttpClient, SdkAsyncHttpClient asyncHttpClient) {
         if (clientType == ClientType.SYNC) {
-            return clientConfig.option(SdkClientOption.SYNC_HTTP_CLIENT).clientName();
+            return syncHttpClient.clientName();
         }
 
         if (clientType == ClientType.ASYNC) {
-            return clientConfig.option(SdkClientOption.ASYNC_HTTP_CLIENT).clientName();
+            return asyncHttpClient.clientName();
         }
 
         return ClientType.UNKNOWN.name();

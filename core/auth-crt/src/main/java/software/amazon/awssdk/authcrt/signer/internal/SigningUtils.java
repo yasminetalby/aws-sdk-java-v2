@@ -131,12 +131,11 @@ public class SigningUtils {
         builder.clearQueryParameters();
 
         // Filter query parameters that will cause signing to fail
-        Map<String, List<String>> params = request.rawQueryParameters();
-        for (Map.Entry<String, List<String>> param: params.entrySet()) {
-            if (!FORBIDDEN_PARAMS.contains(param.getKey())) {
-                builder.putRawQueryParameter(param.getKey(), param.getValue());
+        request.forEachRawQueryParameter((key, value) -> {
+            if (!FORBIDDEN_PARAMS.contains(key)) {
+                builder.putRawQueryParameter(key, value);
             }
-        }
+        });
 
         return builder.build();
     }

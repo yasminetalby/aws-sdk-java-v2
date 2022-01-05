@@ -66,12 +66,6 @@ public interface SdkHttpHeaders {
         return SdkHttpUtils.allMatchingHeaders(headers(), header).collect(Collectors.toList());
     }
 
-    // default Map<String, List<String>> matchingHeaders(Collection<String> headersToFind) {
-    //     return headers().entrySet().stream()
-    //                     .filter(e -> headersToFind.stream().anyMatch(e.getKey()::equalsIgnoreCase))
-    //                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    // }
-
     default void forEachHeader(BiConsumer<? super String, ? super List<String>> consumer) {
         headers().forEach(consumer);
     }

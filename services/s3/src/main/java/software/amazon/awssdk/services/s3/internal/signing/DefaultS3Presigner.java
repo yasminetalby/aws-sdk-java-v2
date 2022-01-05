@@ -432,8 +432,10 @@ public final class DefaultS3Presigner extends DefaultSdkPresigner implements S3P
                                  .host(requestFromInterceptor.host())
                                  .port(requestFromInterceptor.port())
                                  .encodedPath(requestFromInterceptor.encodedPath())
-                                 .rawQueryParameters(requestFromInterceptor.rawQueryParameters())
-                                 .applyMutation(r -> requestFromInterceptor.forEachHeader(r::putHeader))
+                                 .applyMutation(r -> {
+                                     requestFromInterceptor.forEachHeader(r::putHeader);
+                                     requestFromInterceptor.forEachRawQueryParameter(r::putRawQueryParameter);
+                                 })
                                  .contentStreamProvider(bodyFromInterceptor.map(RequestBody::contentStreamProvider).orElse(null))
                                  .build();
     }
@@ -459,8 +461,8 @@ public final class DefaultS3Presigner extends DefaultSdkPresigner implements S3P
                                                   .map(p -> SdkBytes.fromInputStream(p.newStream()))
                                                   .orElse(null);
 
-        List<String> signedHeadersQueryParam = signedHttpRequest.rawQueryParameters().get("X-Amz-SignedHeaders");
-        Validate.validState(signedHeadersQueryParam != null,
+        List<String> signedHeadersQueryParam = signedHttpRequest.firstMatchingRawQueryParameters("X-Amz-SignedHeaders");
+        Validate.validState(!signedHeadersQueryParam.isEmpty(),
                             "Only SigV4 presigners are supported at this time, but the configured "
                             + "presigner (%s) did not seem to generate a SigV4 signature.", execCtx.signer());
 

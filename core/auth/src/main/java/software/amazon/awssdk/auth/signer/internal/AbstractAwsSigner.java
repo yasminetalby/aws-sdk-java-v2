@@ -38,6 +38,7 @@ import software.amazon.awssdk.core.io.SdkDigestInputStream;
 import software.amazon.awssdk.core.signer.Signer;
 import software.amazon.awssdk.http.ContentStreamProvider;
 import software.amazon.awssdk.http.SdkHttpFullRequest;
+import software.amazon.awssdk.http.SdkHttpRequest;
 import software.amazon.awssdk.utils.BinaryUtils;
 import software.amazon.awssdk.utils.StringUtils;
 import software.amazon.awssdk.utils.http.SdkHttpUtils;
@@ -211,10 +212,9 @@ public abstract class AbstractAwsSigner implements Signer {
      * string parameters, then URI encoding both the key and value and then
      * joining them, in order, separating key value pairs with an '&amp;'.
      *
-     * @param parameters The query string parameters to be canonicalized.
      * @return A canonicalized form for the specified query string parameters.
      */
-    protected void addCanonicalizedQueryString(StringBuilder result, Map<String, List<String>> parameters) {
+    protected void addCanonicalizedQueryString(StringBuilder result, SdkHttpRequest.Builder httpRequest) {
 
         SortedMap<String, List<String>> sorted = new TreeMap<>();
 
@@ -222,11 +222,10 @@ public abstract class AbstractAwsSigner implements Signer {
          * Signing protocol expects the param values also to be sorted after url
          * encoding in addition to sorted parameter names.
          */
-        for (Map.Entry<String, List<String>> entry : parameters.entrySet()) {
-            String encodedParamName = SdkHttpUtils.urlEncode(entry.getKey());
-            List<String> paramValues = entry.getValue();
-            List<String> encodedValues = new ArrayList<>(paramValues.size());
-            for (String value : paramValues) {
+        httpRequest.forEachRawQueryParameter((key, values) -> {
+            String encodedParamName = SdkHttpUtils.urlEncode(key);
+            List<String> encodedValues = new ArrayList<>(values.size());
+            for (String value : values) {
                 String encodedValue = SdkHttpUtils.urlEncode(value);
 
                 // Null values should be treated as empty for the purposes of signing, not missing.
@@ -237,7 +236,7 @@ public abstract class AbstractAwsSigner implements Signer {
             }
             Collections.sort(encodedValues);
             sorted.put(encodedParamName, encodedValues);
-        }
+        });
 
         SdkHttpUtils.flattenQueryParameters(result, sorted);
     }

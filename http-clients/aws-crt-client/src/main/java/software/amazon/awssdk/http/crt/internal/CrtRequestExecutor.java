@@ -34,7 +34,6 @@ import software.amazon.awssdk.http.SdkHttpRequest;
 import software.amazon.awssdk.http.async.AsyncExecuteRequest;
 import software.amazon.awssdk.http.async.SdkAsyncHttpResponseHandler;
 import software.amazon.awssdk.utils.Logger;
-import software.amazon.awssdk.utils.http.SdkHttpUtils;
 
 @SdkInternalApi
 public final class CrtRequestExecutor {
@@ -121,9 +120,9 @@ public final class CrtRequestExecutor {
             encodedPath = "/";
         }
 
-        String encodedQueryString = SdkHttpUtils.encodeAndFlattenQueryParameters(sdkRequest.rawQueryParameters())
-                                                .map(value -> "?" + value)
-                                                .orElse("");
+        String encodedQueryString = sdkRequest.encodedQueryParameters()
+                                              .map(value -> "?" + value)
+                                              .orElse("");
 
         HttpHeader[] crtHeaderArray = asArray(createHttpHeaderList(uri, asyncRequest));
 

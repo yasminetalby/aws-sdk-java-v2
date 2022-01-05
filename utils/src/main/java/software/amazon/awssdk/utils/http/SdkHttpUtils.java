@@ -177,7 +177,30 @@ public final class SdkHttpUtils {
      * can be used as the query string in a URL. The result is not prepended with "?".
      */
     public static Optional<String> encodeAndFlattenQueryParameters(Map<String, List<String>> rawQueryParameters) {
-        return flattenQueryParameters(encodeQueryParameters(rawQueryParameters));
+        if (rawQueryParameters.isEmpty()) {
+            return Optional.empty();
+        }
+
+        StringBuilder queryString = new StringBuilder();
+        rawQueryParameters.forEach((key, values) -> {
+            String encodedKey = urlEncode(key);
+
+            if (values == null) {
+                values = Collections.emptyList();
+            }
+
+            values.forEach(value -> {
+                if (queryString.length() > 0) {
+                    queryString.append('&');
+                }
+                queryString.append(encodedKey);
+                if (value != null) {
+                    queryString.append('=').append(urlEncode(value));
+                }
+            });
+        });
+
+        return Optional.of(queryString.toString());
     }
 
     /**

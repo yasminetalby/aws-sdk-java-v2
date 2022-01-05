@@ -15,6 +15,7 @@
 
 package software.amazon.awssdk.http;
 
+import static java.util.Collections.emptyList;
 import static software.amazon.awssdk.utils.CollectionUtils.deepCopyMap;
 import static software.amazon.awssdk.utils.CollectionUtils.deepUnmodifiableMap;
 
@@ -176,8 +177,23 @@ final class DefaultSdkHttpFullRequest implements SdkHttpFullRequest {
     }
 
     @Override
+    public void forEachRawQueryParameter(BiConsumer<? super String, ? super List<String>> consumer) {
+        queryParametersFromBuilder.forEach((k, v) -> consumer.accept(k, Collections.unmodifiableList(v)));
+    }
+
+    @Override
     public int numHeaders() {
         return headersFromBuilder.size();
+    }
+
+    @Override
+    public int numRawQueryParameters() {
+        return queryParametersFromBuilder.size();
+    }
+
+    @Override
+    public Optional<String> encodedQueryParameters() {
+        return SdkHttpUtils.encodeAndFlattenQueryParameters(queryParametersFromBuilder);
     }
 
     @Override
@@ -188,6 +204,30 @@ final class DefaultSdkHttpFullRequest implements SdkHttpFullRequest {
     @Override
     public Map<String, List<String>> rawQueryParameters() {
         return queryParameters.getValue();
+    }
+
+    @Override
+    public Optional<String> firstMatchingRawQueryParameter(String key) {
+        List<String> values = queryParametersFromBuilder.get(key);
+        return values == null ? Optional.empty() : values.stream().findFirst();
+    }
+
+    @Override
+    public Optional<String> firstMatchingRawQueryParameter(Collection<String> keys) {
+        for (String key : keys) {
+            Optional<String> result = firstMatchingRawQueryParameter(key);
+            if (result.isPresent()) {
+                return result;
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    @Override
+    public List<String> firstMatchingRawQueryParameters(String key) {
+        List<String> values = queryParametersFromBuilder.get(key);
+        return values == null ? emptyList() : values;
     }
 
     @Override
@@ -442,8 +482,23 @@ final class DefaultSdkHttpFullRequest implements SdkHttpFullRequest {
         }
 
         @Override
+        public void forEachRawQueryParameter(BiConsumer<? super String, ? super List<String>> consumer) {
+            queryParameters.forEach((k, v) -> consumer.accept(k, Collections.unmodifiableList(v)));
+        }
+
+        @Override
         public int numHeaders() {
             return headers.size();
+        }
+
+        @Override
+        public int numRawQueryParameters() {
+            return queryParameters.size();
+        }
+
+        @Override
+        public Optional<String> encodedQueryParameters() {
+            return SdkHttpUtils.encodeAndFlattenQueryParameters(queryParameters);
         }
 
         private void copyHeadersIfNeeded() {

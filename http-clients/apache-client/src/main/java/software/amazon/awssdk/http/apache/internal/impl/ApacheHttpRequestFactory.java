@@ -19,6 +19,7 @@ import static software.amazon.awssdk.utils.NumericUtils.saturatedCast;
 
 import java.net.URI;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.apache.http.HttpEntity;
@@ -73,9 +74,7 @@ public class ApacheHttpRequestFactory {
             int port = request.port();
             String protocol = request.protocol();
             String newPath = path.replace("//", "/%2F");
-            String encodedQueryString = SdkHttpUtils.encodeAndFlattenQueryParameters(request.rawQueryParameters())
-                                                    .map(value -> "?" + value)
-                                                    .orElse("");
+            String encodedQueryString = request.encodedQueryParameters().map(value -> "?" + value).orElse("");
 
             // Do not include the port in the URI when using the default port for the protocol.
             String portString = SdkHttpUtils.isUsingStandardPort(protocol, port) ?

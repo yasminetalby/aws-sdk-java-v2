@@ -254,7 +254,7 @@ public class JsonProtocolMarshaller implements ProtocolMarshaller<SdkHttpFullReq
                 }
                 request.removeHeader(CONTENT_LENGTH);
                 request.putHeader(TRANSFER_ENCODING, CHUNKED);
-            } else if (contentType != null && !hasStreamingInput && request.headers().containsKey(CONTENT_LENGTH)) {
+            } else if (contentType != null && !hasStreamingInput && request.firstMatchingHeader(CONTENT_LENGTH).isPresent()) {
                 request.putHeader(CONTENT_TYPE, contentType);
             }
         }

@@ -15,12 +15,15 @@
 
 package software.amazon.awssdk.http;
 
+import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 
 import java.net.URI;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiConsumer;
 import software.amazon.awssdk.annotations.Immutable;
 import software.amazon.awssdk.annotations.SdkProtectedApi;
 import software.amazon.awssdk.utils.builder.CopyableBuilder;
@@ -95,6 +98,39 @@ public interface SdkHttpRequest extends SdkHttpHeaders, ToCopyableBuilder<SdkHtt
      * @return An unmodifiable map of all non-encoded parameters in this request.
      */
     Map<String, List<String>> rawQueryParameters();
+
+    default Optional<String> firstMatchingRawQueryParameter(String key) {
+        List<String> values = rawQueryParameters().get(key);
+        return values == null ? Optional.empty() : values.stream().findFirst();
+    }
+
+    default Optional<String> firstMatchingRawQueryParameter(Collection<String> keys) {
+        for (String key : keys) {
+            Optional<String> result = firstMatchingRawQueryParameter(key);
+            if (result.isPresent()) {
+                return result;
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    default List<String> firstMatchingRawQueryParameters(String key) {
+        List<String> values = rawQueryParameters().get(key);
+        return values == null ? emptyList() : values;
+    }
+
+    default void forEachRawQueryParameter(BiConsumer<? super String, ? super List<String>> consumer) {
+        rawQueryParameters().forEach(consumer);
+    }
+
+    default int numRawQueryParameters() {
+        return rawQueryParameters().size();
+    }
+
+    default Optional<String> encodedQueryParameters() {
+        return SdkHttpUtils.encodeAndFlattenQueryParameters(rawQueryParameters());
+    }
 
     /**
      * Convert this HTTP request's protocol, host, port, path and query string into a properly-encoded URI string that matches the
@@ -261,6 +297,18 @@ public interface SdkHttpRequest extends SdkHttpHeaders, ToCopyableBuilder<SdkHtt
          * Removes all query parameters from this builder.
          */
         Builder clearQueryParameters();
+
+        default void forEachRawQueryParameter(BiConsumer<? super String, ? super List<String>> consumer) {
+            rawQueryParameters().forEach(consumer);
+        }
+
+        default int numRawQueryParameters() {
+            return rawQueryParameters().size();
+        }
+
+        default Optional<String> encodedQueryParameters() {
+            return SdkHttpUtils.encodeAndFlattenQueryParameters(rawQueryParameters());
+        }
 
         /**
          * The path, exactly as it was configured with {@link #method(SdkHttpMethod)}.
