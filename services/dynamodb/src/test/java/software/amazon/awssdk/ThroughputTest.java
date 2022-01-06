@@ -15,70 +15,86 @@
 
 package software.amazon.awssdk;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import org.assertj.core.internal.bytebuddy.implementation.bytecode.Throw;
-import org.junit.Test;
-import software.amazon.awssdk.http.SdkHttpClient;
+import java.util.concurrent.ThreadLocalRandom;
+import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Mode;
+import org.openjdk.jmh.profile.GCProfiler;
+import org.openjdk.jmh.runner.Runner;
+import org.openjdk.jmh.runner.RunnerException;
+import org.openjdk.jmh.runner.options.Options;
+import org.openjdk.jmh.runner.options.OptionsBuilder;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
+@BenchmarkMode({Mode.Throughput, Mode.AverageTime})
 public class ThroughputTest {
-    @Test
-    public void test() throws Throwable {
-        DynamoDbClient client = DynamoDbClient.builder().httpClientBuilder(ApacheHttpClient.builder().maxConnections(10)).build();
-        ExecutorService executor = Executors.newFixedThreadPool(10);
+    private static final DynamoDbClient DDB = DynamoDbClient.builder()
+                                                            .httpClientBuilder(ApacheHttpClient.builder().maxConnections(100))
+                                                            .build();
 
-        for (int i = 0; i < 100; i++) {
-            System.out.println("Warmup: " + i + "%...");
-            runWarmupTests(client, executor);
-        }
+    public static void main(String... args) throws RunnerException {
+        Options opts = new OptionsBuilder()
+            .include(ThroughputTest.class.getSimpleName())
+            .addProfiler(GCProfiler.class)
+            .build();
 
-        Duration runTime = Duration.ofMinutes(1);
-        System.out.println("Executing runs... (" + runTime + " each)");
-        for (int run = 0; run < 5; run++) {
-
-            int i = 0;
-
-            Instant start = Instant.now();
-            Instant end = start.plus(runTime);
-            while (Instant.now().isBefore(end)) {
-                ++i;
-                int v = i % 10;
-                client.getItem(r -> r.tableName("millem-throughput")
-                                     .key(Collections.singletonMap("key", AttributeValue.builder().s("value" + v).build())));
-            }
-
-            double tps = (double) i / runTime.getSeconds();
-            System.out.println("Run " + run + " TPS: " + tps);
-        }
+        new Runner(opts).run();
     }
 
-    private void runWarmupTests(DynamoDbClient client, ExecutorService executor) throws InterruptedException, ExecutionException {
-        runRealTests(client, executor);
+    @Benchmark
+    public void benchmark() {
+        int random = ThreadLocalRandom.current().nextInt(0, 10);
+        DDB.getItem(r -> r.tableName("millem-throughput")
+                          .key(Collections.singletonMap("key", AttributeValue.builder().s("value" + random).build())));
     }
 
-    private void runRealTests(DynamoDbClient client, ExecutorService executor) throws InterruptedException, ExecutionException {
-        List<Future<?>> results = new ArrayList<>();
-        for (int value = 0; value < 100; value++) {
-            final int v = value;
-            results.add(executor.submit(() -> {
-                client.getItem(r -> r.tableName("millem-throughput")
-                                     .key(Collections.singletonMap("key", AttributeValue.builder().s("value" + v).build())));
-            }));
-        }
-        for (Future<?> result : results) {
-            result.get();
-        }
-    }
+    // @Test
+    // public void test() throws Throwable {
+    //     ExecutorService executor = Executors.newFixedThreadPool(10);
+    //
+    //     for (int i = 0; i < 100; i++) {Å
+    //         System.out.println("Warmup: " + i + "%...");
+    //         runWarmupTests(DDB, executor);
+    //     }
+    //
+    //     Duration runTime = Duration.ofMinutes(1);
+    //     System.out.println("Executing runs... (" + runTime + " each)");
+    //     for (int run = 0; run < 5; run++) {
+    //
+    //         int i = 0;
+    //
+    //         Instant start = Instant.now();
+    //         Instant end = start.plus(runTime);
+    //         while (Instant.now().isBefore(end)) {
+    //             ++i;
+    //             int v = i % 10;
+    //             DDB.getItem(r -> r.tableName("millem-throughput")
+    //                               .key(Collections.singletonMap("key", AttributeValue.builder().s("value" + v).build())));
+    //         }
+    //
+    //         double tps = (double) i / runTime.getSeconds();
+    //         System.out.println("Run " + run + " TPS: " + tps);
+    //     }
+    // }
+    //
+    // private void runWarmupTests(DynamoDbClient client, ExecutorService executor) throws InterruptedException, ExecutionException {
+    //     runRealTests(client, executor);
+    // }
+    //
+    // private void runRealTests(DynamoDbClient client, ExecutorService executor) throws InterruptedException, ExecutionException {
+    //     List<Future<?>> results = new ArrayList<>();
+    //     for (int value = 0; value < 100; value++) {
+    //         final int v = value;
+    //         results.add(executor.submit(() -> {
+    //             client.getItem(r -> r.tableName("millem-throughput")
+    //                                  .key(Collections.singletonMap("key", AttributeValue.builder().s("value" + v).build())));
+    //         }));
+    //     }
+    //     for (Future<?> result : results) {
+    //         result.get();
+    //     }
+    // }
 }
