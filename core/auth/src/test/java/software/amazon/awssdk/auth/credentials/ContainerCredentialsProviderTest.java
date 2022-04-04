@@ -54,10 +54,11 @@ public class ContainerCredentialsProviderTest {
 
     @Before
     public void setup() {
-        credentialsProvider = ContainerCredentialsProvider.builder()
-                                                          .endpoint("http://localhost:" + mockServer.port())
-                                                          .build();
-        helper.set(AWS_CONTAINER_CREDENTIALS_RELATIVE_URI, CREDENTIALS_PATH);
+        TestCredentialsEndpointProvider endpointProvider =
+            new TestCredentialsEndpointProvider("http://localhost:" + mockServer.port());
+        credentialsProvider = new ContainerCredentialsProvider.BuilderImpl()
+            .credentialsEndpointProvider(endpointProvider)
+            .build();
     }
 
     @AfterClass
@@ -81,6 +82,8 @@ public class ContainerCredentialsProviderTest {
      */
     @Test
     public void testGetCredentialsReturnsValidResponseFromEcsEndpoint() {
+        helper.set(AWS_CONTAINER_CREDENTIALS_RELATIVE_URI, "");
+
         stubForSuccessResponse();
 
         AwsSessionCredentials credentials = (AwsSessionCredentials) credentialsProvider.resolveCredentials();
@@ -96,6 +99,8 @@ public class ContainerCredentialsProviderTest {
      */
     @Test
     public void getCredentialsWithCorruptResponseDoesNotIncludeCredentialsInExceptionMessage() {
+        helper.set(AWS_CONTAINER_CREDENTIALS_RELATIVE_URI, "");
+
         stubForCorruptedSuccessResponse();
 
         assertThatThrownBy(credentialsProvider::resolveCredentials).satisfies(t -> {
