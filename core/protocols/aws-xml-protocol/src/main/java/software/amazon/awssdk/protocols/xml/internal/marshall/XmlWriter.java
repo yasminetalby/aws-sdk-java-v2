@@ -25,6 +25,7 @@ import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.utils.BinaryUtils;
 import software.amazon.awssdk.utils.DateUtils;
+import software.amazon.awssdk.utils.StringUtils;
 
 /**
  * Utility for creating easily creating XML documents, one element at a time.
@@ -186,27 +187,29 @@ final class XmlWriter {
         }
     }
 
-    private String escapeXmlEntities(String s) {
-        // Unescape any escaped characters.
-        if (s.contains("&")) {
-            s = s.replace("&quot;", "\"");
-            s = s.replace("&apos;", "'");
-            s = s.replace("&lt;", "<");
-            s = s.replace("&gt;", ">");
-            s = s.replace("&#x0D;", "\r");
-            s = s.replace("&#x0A;", "\n");
-            // Ampersands should always be the last to unescape
-            s = s.replace("&amp;", "&");
-        }
-        // Ampersands should always be the first to escape
-        s = s.replace("&", "&amp;");
-        s = s.replace("\"", "&quot;");
-        s = s.replace("'", "&apos;");
-        s = s.replace("<", "&lt;");
-        s = s.replace(">", "&gt;");
-        s = s.replace("\r", "&#x0D;");
-        s = s.replace("\n", "&#x0A;");
-        return s;
-    }
+    private static final String[] UNESCAPE_SEARCHES = {
+        // Ampersands should always be the last to unescape
+        "&quot;", "&apos;", "&lt;", "&gt;", "&#x0D;", "&#x0A;", "&amp;"
+    };
 
+    private static final String[] UNESCAPE_REPLACEMENTS = {
+        "\"", "'", "<", ">", "\r", "\n", "&"
+    };
+
+    private static final String[] ESCAPE_SEARCHES = {
+        // Ampersands should always be the first to escape
+        "&", "\"", "'", "<", ">", "\r", "\n"
+    };
+
+    private static final String[] ESCAPE_REPLACEMENTS = {
+        "&amp;", "&quot;", "&apos;", "&lt;", "&gt;", "&#x0D;", "&#x0A;"
+    };
+
+    private String escapeXmlEntities(String s) {
+        // Unescape any escaped characters. TODO: test to make sure this didn't break it
+        if (s.contains("&")) {
+            s = StringUtils.replaceEach(s, UNESCAPE_SEARCHES, UNESCAPE_REPLACEMENTS);
+        }
+        return StringUtils.replaceEach(s, ESCAPE_SEARCHES, ESCAPE_REPLACEMENTS);
+    }
 }

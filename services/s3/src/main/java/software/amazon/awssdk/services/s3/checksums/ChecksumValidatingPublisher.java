@@ -53,7 +53,6 @@ public final class ChecksumValidatingPublisher implements SdkPublisher<ByteBuffe
     }
 
     private static class ChecksumValidatingSubscriber implements Subscriber<ByteBuffer> {
-
         private static final int CHECKSUM_SIZE = 16;
 
         private final Subscriber<? super ByteBuffer> wrapped;

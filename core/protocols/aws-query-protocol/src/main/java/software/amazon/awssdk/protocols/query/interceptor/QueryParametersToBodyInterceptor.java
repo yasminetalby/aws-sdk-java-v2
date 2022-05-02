@@ -27,7 +27,6 @@ import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 import software.amazon.awssdk.http.SdkHttpFullRequest;
 import software.amazon.awssdk.http.SdkHttpMethod;
 import software.amazon.awssdk.http.SdkHttpRequest;
-import software.amazon.awssdk.utils.CollectionUtils;
 import software.amazon.awssdk.utils.http.SdkHttpUtils;
 
 /**
@@ -63,8 +62,8 @@ public final class QueryParametersToBodyInterceptor implements ExecutionIntercep
 
     private boolean shouldPutParamsInBody(SdkHttpFullRequest input) {
         return input.method() == SdkHttpMethod.POST &&
-                !input.contentStreamProvider().isPresent() &&
-                !CollectionUtils.isNullOrEmpty(input.rawQueryParameters());
+               !input.contentStreamProvider().isPresent() &&
+               input.numRawQueryParameters() > 0;
     }
 
     private SdkHttpRequest changeQueryParametersToFormData(SdkHttpFullRequest input) {

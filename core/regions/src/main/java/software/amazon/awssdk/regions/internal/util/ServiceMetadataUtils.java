@@ -23,6 +23,7 @@ import software.amazon.awssdk.regions.PartitionMetadata;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.regions.ServiceEndpointKey;
 import software.amazon.awssdk.utils.Pair;
+import software.amazon.awssdk.utils.StringUtils;
 import software.amazon.awssdk.utils.Validate;
 
 @SdkInternalApi
@@ -30,13 +31,14 @@ public class ServiceMetadataUtils {
     private ServiceMetadataUtils() {
     }
 
+    private static final String[] SEARCH_LIST = {"{service}", "{region}", "{dnsSuffix}" };
+
+
     public static URI endpointFor(String hostname,
                                   String endpointPrefix,
                                   String region,
                                   String dnsSuffix) {
-        return URI.create(hostname.replace("{service}", endpointPrefix)
-                                  .replace("{region}", region)
-                                  .replace("{dnsSuffix}", dnsSuffix));
+        return URI.create(StringUtils.replaceEach(hostname, SEARCH_LIST, new String[] { endpointPrefix, region, dnsSuffix }));
     }
 
     public static Region signingRegion(ServiceEndpointKey key,
