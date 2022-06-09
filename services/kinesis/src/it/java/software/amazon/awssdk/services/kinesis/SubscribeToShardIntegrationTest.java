@@ -119,11 +119,34 @@ public class SubscribeToShardIntegrationTest extends AbstractTestCase {
     }
 
     @Test
+    public void reproduceSubscribeToShardError() {
+        ScheduledExecutorService producer = Executors.newScheduledThreadPool(1);
+        producer.scheduleAtFixedRate(this::putRecord, 1, 1, TimeUnit.SECONDS);
+
+        Consumer<SubscribeToShardEvent> eventConsumer = s -> {
+            System.out.println("Got " + s.records().size() + " records.");
+        };
+        for (int i = 0; i < 10; i++) {
+            System.out.println("Subscribing.");
+            asyncClient.subscribeToShard(r -> r.consumerARN(consumerArn)
+                                               .shardId(shardId)
+                                               .startingPosition(s -> s.type(ShardIteratorType.LATEST)),
+                                         SubscribeToShardResponseHandler.builder()
+                                                                        .onEventStream(p -> p.filter(SubscribeToShardEvent.class)
+                                                                                             .subscribe(eventConsumer))
+                                                                        .onResponse(this::verifyHttpMetadata)
+                                                                        .build())
+                       .join();
+        }
+        producer.shutdown();
+    }
+
+    @Test
     public void subscribeToShard_ReceivesAllData() {
         List<SdkBytes> producedData = new ArrayList<>();
         ScheduledExecutorService producer = Executors.newScheduledThreadPool(1);
         // Delay it a bit to allow us to subscribe first
-        producer.scheduleAtFixedRate(() -> putRecord().ifPresent(producedData::add), 10, 1, TimeUnit.SECONDS);
+        producer.scheduleAtFixedRate(() -> putRecord().ifPresent(producedData::add), 1, 1, TimeUnit.SECONDS);
 
         List<SdkBytes> receivedData = new ArrayList<>();
         // Add every event's data to the receivedData list
@@ -324,12 +347,6 @@ public class SubscribeToShardIntegrationTest extends AbstractTestCase {
     }
 
     private void verifyHttpMetadata(SubscribeToShardResponse response) {
-        SdkHttpResponse sdkHttpResponse = response.sdkHttpResponse();
-        assertThat(sdkHttpResponse).isNotNull();
-        assertThat(sdkHttpResponse.isSuccessful()).isTrue();
-        assertThat(sdkHttpResponse.headers()).isNotEmpty();
-        assertThat(response.responseMetadata()).isNotNull();
-        assertThat(response.responseMetadata().extendedRequestId()).isNotEqualTo("UNKNOWN");
-        assertThat(response.responseMetadata().requestId()).isNotEqualTo("UNKNOWN");
+        System.out.println("Got response metadata with request ID " + response.responseMetadata().requestId());
     }
 }

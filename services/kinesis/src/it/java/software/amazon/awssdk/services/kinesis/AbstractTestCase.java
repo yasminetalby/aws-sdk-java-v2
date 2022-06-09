@@ -15,27 +15,79 @@
 
 package software.amazon.awssdk.services.kinesis;
 
+import static software.amazon.awssdk.http.SdkHttpConfigurationOption.TRUST_ALL_CERTIFICATES;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URI;
+import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import org.junit.BeforeClass;
+import org.slf4j.event.Level;
 import software.amazon.awssdk.awscore.util.AwsHostNameUtils;
+import software.amazon.awssdk.http.Http2Metric;
+import software.amazon.awssdk.http.HttpMetric;
+import software.amazon.awssdk.http.apache.ApacheHttpClient;
+import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
+import software.amazon.awssdk.metrics.LoggingMetricPublisher;
+import software.amazon.awssdk.metrics.MetricCollection;
+import software.amazon.awssdk.metrics.MetricPublisher;
+import software.amazon.awssdk.metrics.SdkMetric;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.testutils.service.AwsTestBase;
+import software.amazon.awssdk.utils.AttributeMap;
 
 public class AbstractTestCase extends AwsTestBase {
     protected static KinesisClient client;
     protected static KinesisAsyncClient asyncClient;
 
-    @BeforeClass
-    public static void init() throws IOException {
+    public static void init(int expectedMaxConcurrency) throws IOException {
         setUpCredentials();
-        KinesisClientBuilder builder = KinesisClient.builder().credentialsProvider(CREDENTIALS_PROVIDER_CHAIN);
+        KinesisClientBuilder builder = KinesisClient.builder()
+                                                    .credentialsProvider(CREDENTIALS_PROVIDER_CHAIN)
+                                                    .endpointOverride(URI.create("https://34.223.45.74:443"))
+                                                    .httpClient(ApacheHttpClient.builder()
+                                                    .buildWithDefaults(AttributeMap.builder()
+                                                                                   .put(TRUST_ALL_CERTIFICATES, Boolean.TRUE)
+                                                                                   .build()));
         setEndpoint(builder);
         client = builder.build();
-        asyncClient = KinesisAsyncClient.builder().credentialsProvider(CREDENTIALS_PROVIDER_CHAIN).build();
+        asyncClient = KinesisAsyncClient.builder()
+                                        .credentialsProvider(CREDENTIALS_PROVIDER_CHAIN)
+                                        .overrideConfiguration(c -> c.addMetricPublisher(new MetricPublisher() {
+                                            @Override
+                                            public void publish(MetricCollection metricCollection) {
+                                                List<Integer> availableConcurrency =
+                                                    metricCollection.metricValues(HttpMetric.AVAILABLE_CONCURRENCY);
+                                                List<Integer> leasedConcurrency =
+                                                    metricCollection.metricValues(HttpMetric.LEASED_CONCURRENCY);
+
+                                                if (!leasedConcurrency.isEmpty()) {
+                                                    int leasedConcurrencyN = leasedConcurrency.get(0);
+                                                    if (leasedConcurrencyN > expectedMaxConcurrency) {
+                                                        System.out.println("Available concurrency: " +
+                                                                           availableConcurrency.stream()
+                                                                                               .map(Object::toString)
+                                                                                               .collect(Collectors.joining(", ")) +
+                                                                           "; Leased Concurrency: " +
+                                                                           leasedConcurrency.stream()
+                                                                                            .map(Object::toString)
+                                                                                            .collect(Collectors.joining(", ")));
+                                                    }
+                                                }
+                                                metricCollection.children().forEach(this::publish);
+                                            }
+
+                                            @Override
+                                            public void close() {
+                                            }
+                                        }))
+                                        .httpClientBuilder(NettyNioAsyncHttpClient.builder()
+                                                                                  .maxConcurrency(expectedMaxConcurrency + 10))
+                                        .build();
     }
 
     private static void setEndpoint(KinesisClientBuilder builder) throws IOException {
