@@ -37,4 +37,5 @@ public class DefaultS3CrtAsyncClientTest {
                 AsyncRequestBody.fromString("foobar")).join()).hasCauseInstanceOf(UnsupportedOperationException.class);
         }
     }
+
 }
