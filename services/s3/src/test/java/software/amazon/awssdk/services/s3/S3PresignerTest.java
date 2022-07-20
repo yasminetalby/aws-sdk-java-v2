@@ -26,6 +26,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.Arrays;
+import java.util.List;
 import org.assertj.core.data.Offset;
 import org.junit.After;
 import org.junit.Before;
@@ -554,6 +556,28 @@ public class S3PresignerTest {
         assertThat(presignedRequest.httpRequest().rawQueryParameters().get("X-Amz-Algorithm").get(0))
             .isEqualTo("AWS4-ECDSA-P256-SHA256");
         assertThat(presignedRequest.url().toString()).startsWith(customEndpoint);
+    }
+
+    @Test
+    public void accessPointArn_multiRegion_putExcludesNonHostHeader() {
+        String customEndpoint = "https://mfzwi23gnjvgw.mrap.accesspoint.s3-global.amazonaws.com";
+        String accessPointArn = "arn:aws:s3::12345678910:accesspoint:mfzwi23gnjvgw.mrap";
+
+        S3Presigner presigner = presignerBuilder().serviceConfiguration(S3Configuration.builder()
+                                                                                       .useArnRegionEnabled(true)
+                                                                                       .build())
+                                                  .build();
+
+        PresignedPutObjectRequest presignedRequest =
+            presigner.presignPutObject(r -> r.signatureDuration(Duration.ofMinutes(5))
+                                             .putObjectRequest(put -> put.bucket(accessPointArn)
+                                                                         .key("bar")));
+
+        assertThat(presignedRequest.httpRequest().rawQueryParameters().get("X-Amz-Algorithm").get(0))
+            .isEqualTo("AWS4-ECDSA-P256-SHA256");
+        assertThat(presignedRequest.url().toString()).startsWith(customEndpoint);
+        assertThat(presignedRequest.signedHeaders()).containsKey("host")
+                                                    .hasSize(1);
     }
 
     @Test

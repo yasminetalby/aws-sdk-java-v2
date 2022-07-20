@@ -20,7 +20,10 @@ import static software.amazon.awssdk.authcrt.signer.internal.SigningUtils.getSig
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.auth.signer.AwsSignerExecutionAttribute;
 import software.amazon.awssdk.auth.signer.internal.SignerConstant;
@@ -32,6 +35,13 @@ import software.amazon.awssdk.regions.RegionScope;
 public class SigningConfigProvider {
 
     private static final Boolean DEFAULT_DOUBLE_URL_ENCODE = Boolean.TRUE;
+
+    private static final Set<String> HEADERS_TO_IGNORE;
+
+    static {
+        HEADERS_TO_IGNORE = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        HEADERS_TO_IGNORE.addAll(Arrays.asList("connection", "x-amzn-trace-id", "user-agent", "expect"));
+    }
 
     public SigningConfigProvider() {
     }
@@ -54,6 +64,7 @@ public class SigningConfigProvider {
         AwsSigningConfig signingConfig = createDefaultRequestConfig(executionAttributes);
         signingConfig.setSignedBodyHeader(AwsSigningConfig.AwsSignedBodyHeaderType.X_AMZ_CONTENT_SHA256);
         signingConfig.setSignatureType(AwsSigningConfig.AwsSignatureType.HTTP_REQUEST_VIA_HEADERS);
+        signingConfig.setShouldSignHeader(h -> !HEADERS_TO_IGNORE.contains(h));
         return signingConfig;
     }
 
