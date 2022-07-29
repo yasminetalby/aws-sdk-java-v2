@@ -1,10 +1,25 @@
 ---
 name: "🐛 Bug Report"
-description: Report a bug
+description: Report a bug. This is the place to report any incorrect or unexpected behavior that occurs while using the SDK.
 title: "(short issue description)"
 labels: [bug, needs-triage]
 assignees: []
 body:
+- type: checkboxes
+    id: ack
+    attributes:
+      label: Acknowledgements
+      options:
+        - label: This issue submission is for AWS SDK Java v2.
+        - label: I have looked through the previously submitted bug issues and confirm that this is not a duplicate submission.
+          required: true
+ - type: markdown
+    attributes:
+      value: |
+        What should I do if there already exist a bug issue submission for this?
+
+        Any input or additional information is extremely helpful to our team. You can showcase your interest by reacting to the submission with 👍 or share any additional information by commenting on the submission.
+
   - type: textarea
     id: description
     attributes:
@@ -17,7 +32,7 @@ body:
     attributes:
       label: Expected Behavior
       description: |
-        What did you expect to happen?
+        What did you expect to happen? Why did you expected this behavior? (provide any supporting documentation)
     validations:
       required: true
   - type: textarea

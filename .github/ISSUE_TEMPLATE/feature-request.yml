@@ -1,10 +1,24 @@
 ---
 name: 🚀 Feature Request
-description: Suggest an idea for this project
+description: Suggest an idea for this project. This is the place to request any new feature to the SDK that would improve your user experience.
 title: "(short issue description)"
 labels: [feature-request, needs-triage]
 assignees: []
 body:
+- type: checkboxes
+    id: ack
+    attributes:
+      label: Acknowledgements
+      options:
+        - label: This issue submission is for AWS SDK Java v2.
+        - label: I have looked through the previously submitted feature requests and confirm that this is not a duplicate submission.
+          required: true
+ - type: markdown
+    attributes:
+      value: |
+        What should I do if there already exist a feature request submission for this?
+
+	Any input or additional information is extremely helpful to our team. You can showcase your interest by reacting to the submission with 👍 or share any additional information by commenting on the submission.
   - type: textarea
     id: description
     attributes:
@@ -17,7 +31,7 @@ body:
     attributes:
       label: Use Case
       description: |
-        Why do you need this feature? For example: "I'm always frustrated when..."
+        Why do you need this feature? How will this improve your user experience? 
     validations:
         required: true
   - type: textarea

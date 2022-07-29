@@ -3,4 +3,4 @@ blank_issues_enabled: false
 contact_links:
   - name: 💬 General Question
     url: https://github.com/aws/aws-sdk-java-v2/discussions/categories/q-a
-    about: Please ask and answer questions as a discussion thread
+    about: This is the place to ask or answer any guidance question or contribute to the community.
