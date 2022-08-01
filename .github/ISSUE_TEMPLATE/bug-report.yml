@@ -12,7 +12,8 @@ body:
    options:
      - label: This issue submission is for AWS SDK Java v2.
      - label: I have looked through the previously submitted bug issues and confirm that this is not a duplicate submission.
-          required: true
+    validations:
+       required: true
  - type: markdown
     attributes:
       value: |
