@@ -5,7 +5,7 @@ title: "(short issue description)"
 labels: [bug, needs-triage]
 assignees: []
 body:
- - type: checkboxes
+  - type: checkboxes
   id: checkup
   attributes:
     label: Acknowledgements
@@ -14,7 +14,7 @@ body:
       - label: I have looked through the previously submitted bug issues and confirm that this is not a duplicate submission.
     validations:
        required: true
- - type: markdown
+  - type: markdown
     attributes:
       value: |
         What should I do if there already exist a bug issue submission for this?
