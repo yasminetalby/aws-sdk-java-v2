@@ -15,8 +15,8 @@ body:
     validations: 
       required: true
   - type: markdown
-      attributes:
-        value: |
+    attributes:
+      value: |
          ** What should I do if there already exist a documentation issue submission for this?**
 
         Any input or additional information is extremely helpful to our team. You can showcase your interest by reacting to the submission with 👍 or share any additional information by commenting on the submission.
