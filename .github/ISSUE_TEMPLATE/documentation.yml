@@ -6,7 +6,7 @@ labels: [documentation, needs-triage]
 assignees: []
 body:
   - type: checkboxes
-      id: ack
+      id: acknowledgments
       attributes:
         label: Acknowledgements
         options:
