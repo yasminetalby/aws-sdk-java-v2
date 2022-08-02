@@ -6,15 +6,16 @@ labels: [bug, needs-triage]
 assignees: []
 body:
   - type: checkboxes
-  id: checkup
-  attributes:
-    label: Acknowledgements
-    options:
-      - label: This issue submission is for AWS SDK Java v2.
-      - label: I have looked through the previously submitted bug issues and confirm that this is not a duplicate submission.
-    validations:
-       required: true
+    id: checkup
+    attributes:
+      label: Acknowledgements
+      options:
+        - label: This issue submission is for AWS SDK Java v2.
+        - label: I have looked through the previously submitted bug issues and confirm that this is not a duplicate submission.
+      validations:
+        required: true
   - type: markdown
+    id: guidance
     attributes:
       value: |
         What should I do if there already exist a bug issue submission for this?
