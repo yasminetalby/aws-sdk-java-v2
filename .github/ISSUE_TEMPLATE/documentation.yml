@@ -5,18 +5,19 @@ title: "(short issue description)"
 labels: [documentation, needs-triage]
 assignees: []
 body:
-- type: checkboxes
-    id: ack
-    attributes:
-      label: Acknowledgements
-      options:
-        - label: This issue submission is for AWS SDK Java v2.
-        - label: I have looked through the previously submitted documentation issues and confirm that this is not a duplicate submission.
+  - type: checkboxes
+      id: ack
+      attributes:
+        label: Acknowledgements
+        options:
+          - label: This issue submission is for AWS SDK Java v2.
+          - label: I have looked through the previously submitted documentation issues and confirm that this is not a duplicate submission.
+        validations: 
           required: true
- - type: markdown
-    attributes:
-      value: |
-        What should I do if there already exist a documentation issue submission for this?
+  - type: markdown
+      attributes:
+        value: |
+         ** What should I do if there already exist a documentation issue submission for this?**
 
         Any input or additional information is extremely helpful to our team. You can showcase your interest by reacting to the submission with 👍 or share any additional information by commenting on the submission.
 
