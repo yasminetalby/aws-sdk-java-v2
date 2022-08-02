@@ -17,6 +17,7 @@ body:
   - type: markdown
     id: guidance
     attributes:
+      label: test
       value: |
         What should I do if there already exist a bug issue submission for this?
 
